@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <title>VoiceMemo</title>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <h1>🎙️ VoiceMemo</h1>
+            <p id="status">Prêt à écouter</p>
+        </header>
+
+        <div class="controls">
+            <button id="recordBtn" onclick="toggleListen()">Appuyer pour Parler</button>
+        </div>
+
+        <ul id="memoList"></ul>
+
+        <button class="clear-btn" onclick="clearAll()">Tout effacer</button>
+    </div>
+
+    <script>
+        // Gestion du Service Worker (Offline)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+
+        // API Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+        
+        let isListening = false;
+        let memos = JSON.parse(localStorage.getItem('vocal-memos')) || [];
+
+        if (recognition) {
+            recognition.lang = 'fr-FR';
+            recognition.continuous = false;
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                addMemo(text);
+                toggleListen();
+            };
+
+            recognition.onerror = () => toggleListen();
+        }
+
+        function toggleListen() {
+            if (!recognition) return alert("Micro non supporté sur ce navigateur");
+            isListening = !isListening;
+            const btn = document.getElementById('recordBtn');
+            const status = document.getElementById('status');
+
+            if (isListening) {
+                recognition.start();
+                btn.innerText = "Listening...";
+                btn.classList.add('active');
+                status.innerText = "Je vous écoute...";
+            } else {
+                recognition.stop();
+                btn.innerText = "Appuyer pour Parler";
+                btn.classList.remove('active');
+                status.innerText = "Enregistré !";
+            }
+        }
+
+        function addMemo(text) {
+            memos.unshift({ text, date: new Date().toLocaleTimeString() });
+            saveAndRender();
+        }
+
+        function clearAll() {
+            if(confirm("Effacer toutes les notes ?")) {
+                memos = [];
+                saveAndRender();
+            }
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('vocal-memos', JSON.stringify(memos));
+            const list = document.getElementById('memoList');
+            list.innerHTML = memos.map(m => `
+                <li>
+                    <span class="text">${m.text}</span>
+                    <span class="date">${m.date}</span>
+                </li>
+            `).join('');
+        }
+
+        saveAndRender();
+    </script>
+</body>
+</html>
